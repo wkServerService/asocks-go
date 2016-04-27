@@ -157,7 +157,7 @@ func pipeThenClose(src, dst *net.TCPConn, finishChannel chan bool) {
 
 func encodeData(data []byte) {
     for i, _ := range data {
-        data[i] ^= 128
+        data[i] ^= 100
     }
 }
 
