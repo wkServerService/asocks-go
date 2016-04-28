@@ -7,7 +7,7 @@ import (
     "time"
     "flag"
     "os"
-    "asocks"
+    "github.com/wkServerService/asocks-go/src/asocks"
     "io"
 )
 
@@ -69,25 +69,30 @@ func getRequest(conn *net.TCPConn) (err error) {
         err = fmt.Errorf("getRequest not socks5 protocol.")
         return
     }
-
     var reqLen = 0;
-
+    var host string;
     switch buf[3] {
         case 1:
             // ipv4
             reqLen = 4 + 4 + 2
+            host = net.IP(buf[4:8]).String()
         case 3:
             // domain
             domainLen := int(buf[4])
             reqLen = 4 + 1 + domainLen + 2
+            dstAddr := buf[5 : 5 + int(buf[1])]
+            host = string(dstAddr)
         case 4:
             // ipv6
             reqLen = 4 + 16 + 2
+            host = net.IP(buf[4:20]).String()
         default:
             // unnormal, close conn
             err = fmt.Errorf("request type不正确：%d", buf[3])
             return
     }
+
+    fmt.Println("Host:", host)
 
     if n < reqLen {
         if _, err = io.ReadFull(conn, buf[n : reqLen]); err != nil {

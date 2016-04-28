@@ -8,7 +8,7 @@ import (
     "runtime"
     "time"
     "flag"
-    "asocks"
+    "github.com/wkServerService/asocks-go/src/asocks"
     "io"
 )
 
@@ -34,16 +34,21 @@ func getRequest(conn *net.TCPConn) (err error){
     addressType := buf[0]
     reqLen := 0;
 
+    var host string;
     switch addressType {
         case 1:
             // ipv4
             reqLen = 1 + 4 + 2
+            host = net.IP(buf[1:5]).String()
         case 3:
             // domain
             reqLen = 1 + 1 + int(buf[1]) + 2
+            dstAddr := buf[2 : 2 + int(buf[1])]
+            host = string(dstAddr)
         case 4:
             // ipv6
             reqLen = 1 + 16 + 2
+            host = net.IP(buf[1:17]).String()
         default:
             // unnormal, close conn
             err = fmt.Errorf("error ATYP:%d\n", buf[0])
@@ -55,21 +60,6 @@ func getRequest(conn *net.TCPConn) (err error){
             return
         }
         encodeData(buf[n:reqLen]) 
-    }
-
-    var host string;
-
-    switch addressType {
-        case 1:
-            // ipv4
-            host = net.IP(buf[1:5]).String()
-        case 3:
-            // domain
-            dstAddr := buf[2 : 2 + int(buf[1])]
-            host = string(dstAddr)
-        case 4:
-            // ipv6
-            host = net.IP(buf[1:17]).String()
     }
 
     port := binary.BigEndian.Uint16(buf[reqLen - 2 : reqLen])
