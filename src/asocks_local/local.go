@@ -80,7 +80,7 @@ func getRequest(conn *net.TCPConn) (err error) {
             // domain
             domainLen := int(buf[4])
             reqLen = 4 + 1 + domainLen + 2
-            dstAddr := buf[5 : 5 + int(buf[1])]
+            dstAddr := buf[5 : 5 + int(buf[4])]
             host = string(dstAddr)
         case 4:
             // ipv6
