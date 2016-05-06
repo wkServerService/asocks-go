@@ -10,9 +10,34 @@ import (
     "flag"
     "github.com/wkServerService/asocks-go/src/asocks"
     "io"
+    "net/http"
+    "golang.org/x/net/websocket"
+    "log"
 )
 
-func handleConnection(conn *net.TCPConn) {
+
+
+func main() {
+    var localAddr string
+    flag.StringVar(&localAddr, "l", ":8080", "监听端口")
+    flag.Parse()
+
+    numCPU := runtime.NumCPU()
+    runtime.GOMAXPROCS(numCPU)
+
+    http.Handle("/ws", websocket.Handler(handleConnection))
+    http.HandleFunc("/", handleHttp)
+    log.Println("listened on:", localAddr)
+    err := http.ListenAndServe(localAddr, nil)
+    if err != nil {
+        panic("ListenAndServe: " + err.Error())
+    }
+}
+func handleHttp(w http.ResponseWriter, r *http.Request)  {
+    w.Write([]byte("hello world!"))
+}
+
+func handleConnection(conn *websocket.Conn) {
     err := getRequest(conn)
 
     if err != nil {
@@ -21,7 +46,7 @@ func handleConnection(conn *net.TCPConn) {
     }
 }
 
-func getRequest(conn *net.TCPConn) (err error){
+func getRequest(conn *websocket.Conn) (err error){
     var n int
     buf := make([]byte, 257)
 
@@ -91,10 +116,10 @@ func getRequest(conn *net.TCPConn) (err error){
     return nil
 }
 
-func pipeThenClose(src, dst *net.TCPConn, finish chan bool) {
+func pipeThenClose(src, dst net.Conn, finish chan bool) {
     defer func(){
-        src.CloseRead()
-        dst.CloseWrite()
+        src.Close()
+        dst.Close()
         finish <- true
     }()
 
@@ -120,39 +145,5 @@ func pipeThenClose(src, dst *net.TCPConn, finish chan bool) {
 func encodeData(data []byte) {
     for i, _ := range data {
         data[i] ^= 100;
-    }
-}
-
-func main() {
-    var localAddr string
-    flag.StringVar(&localAddr, "l", "0.0.0.0:8388", "监听端口")
-    flag.Parse()
-
-    numCPU := runtime.NumCPU()
-    runtime.GOMAXPROCS(numCPU)
-    
-    bindAddr, err := net.ResolveTCPAddr("tcp", localAddr)
-    if err != nil {
-        fmt.Printf("resolve %s failed. err:%s\n", localAddr, err)
-        return
-    }
-
-    ln, err := net.ListenTCP("tcp", bindAddr) 
-    if err != nil {
-        fmt.Println("listen error:", err)
-        return
-    }
-    defer ln.Close()
-
-    fmt.Println("listening ", ln.Addr())
-
-    for {
-        conn, err := ln.AcceptTCP()
-        if err != nil {
-            fmt.Println("accept error:", err)
-            continue
-        }
-
-        go handleConnection(conn)
     }
 }

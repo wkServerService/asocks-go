@@ -9,6 +9,7 @@ import (
     "os"
     "github.com/wkServerService/asocks-go/src/asocks"
     "io"
+    "golang.org/x/net/websocket"
 )
 
 func handleConnection(conn *net.TCPConn) {
@@ -103,8 +104,8 @@ func getRequest(conn *net.TCPConn) (err error) {
     rawRequest := make([]byte, reqLen - 3)
     copy(rawRequest, buf[3:n])
    
-    var remote *net.TCPConn
-    if remote, err = net.DialTCP("tcp", nil, &server); err != nil {
+    var remote *websocket.Conn
+    if remote, err = websocket.Dial(ws_url, "", ws_origin); err != nil {
         return
     }
    
@@ -134,10 +135,10 @@ func getRequest(conn *net.TCPConn) (err error) {
     return nil
 }
 
-func pipeThenClose(src, dst *net.TCPConn, finishChannel chan bool) {
+func pipeThenClose(src, dst net.Conn, finishChannel chan bool) {
     defer func(){
-        src.CloseRead()
-        dst.CloseWrite()
+        src.Close()
+        dst.Close()
         finishChannel <- true
     }()
 
@@ -171,25 +172,16 @@ func printUsage() {
 }
 
 var localAddr string
-var serverAddr string
-var server net.TCPAddr
+
+
+var ws_origin string
+var ws_url string
 
 func main() {
-    flag.StringVar(&localAddr, "l", "127.0.0.1:1080", "本地监听IP:端口")
-    flag.StringVar(&serverAddr, "s", "", "服务器IP:端口")
+    flag.StringVar(&localAddr, "l", "127.0.0.1:17000", "本地监听IP:端口")
+    flag.StringVar(&ws_origin, "o", "http://getdata.wksrv.tk/", "websocket origin")
+    flag.StringVar(&ws_url, "u", "ws://getdata.wksrv.tk:8000/ws", "websocket url")
     flag.Parse()
-
-    if serverAddr == "" {
-        printUsage()
-        return
-    }
-
-    i, err:= net.ResolveTCPAddr("tcp", serverAddr)
-    if err != nil {
-        fmt.Println("resolve ", serverAddr, " failed. err:", err)
-        return
-    }
-    server = *i
 
     numCPU := runtime.NumCPU()
     runtime.GOMAXPROCS(numCPU)
@@ -203,7 +195,8 @@ func main() {
     defer ln.Close()
 
     fmt.Println("listening ", ln.Addr())
-    fmt.Println("server:", server.String())
+    fmt.Println("ws_origin:", ws_origin)
+    fmt.Println("ws_url:", ws_url)
 
     for {
         conn, err := ln.AcceptTCP()
