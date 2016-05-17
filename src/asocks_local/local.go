@@ -179,8 +179,8 @@ var ws_url string
 
 func main() {
     flag.StringVar(&localAddr, "l", "127.0.0.1:17000", "本地监听IP:端口")
-    flag.StringVar(&ws_origin, "o", "http://getdata.wksrv.tk/", "websocket origin")
-    flag.StringVar(&ws_url, "u", "ws://getdata.wksrv.tk:8000/ws", "websocket url")
+    flag.StringVar(&ws_origin, "o", "https://getdatas.herokuapp.com/", "websocket origin")
+    flag.StringVar(&ws_url, "u", "ws://getdatas.herokuapp.com/ws", "websocket url")
     flag.Parse()
 
     numCPU := runtime.NumCPU()
@@ -195,8 +195,8 @@ func main() {
     defer ln.Close()
 
     fmt.Println("listening ", ln.Addr())
-    fmt.Println("ws_origin:", ws_origin)
-    fmt.Println("ws_url:", ws_url)
+    //fmt.Println("ws_origin:", ws_origin)
+    //fmt.Println("ws_url:", ws_url)
 
     for {
         conn, err := ln.AcceptTCP()
