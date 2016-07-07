@@ -4,13 +4,50 @@ import (
     "fmt"
     "net"
     "runtime"
-    "time"
     "flag"
     "os"
     "github.com/wkServerService/asocks-go/src/asocks"
     "io"
     "golang.org/x/net/websocket"
 )
+
+var localAddr string
+var ws_origin string
+var ws_url string
+
+func main() {
+    flag.StringVar(&localAddr, "l", "127.0.0.1:17000", "本地监听IP:端口")
+    //flag.StringVar(&ws_origin, "o", "https://getdatas.herokuapp.com/", "websocket origin")
+    //flag.StringVar(&ws_url, "u", "ws://getdatas.herokuapp.com/ws", "websocket url")
+    flag.StringVar(&ws_origin, "o", "https://127.0.0.1:8080/", "websocket origin")
+    flag.StringVar(&ws_url, "u", "ws://127.0.0.1:8080/ws", "websocket url")
+    flag.Parse()
+
+    numCPU := runtime.NumCPU()
+    runtime.GOMAXPROCS(numCPU)
+
+    bindAddr, _ := net.ResolveTCPAddr("tcp", localAddr)
+    ln, err := net.ListenTCP("tcp", bindAddr)
+    if  err != nil {
+        fmt.Println("listen error:", err)
+        return
+    }
+    defer ln.Close()
+
+    fmt.Println("listening ", ln.Addr())
+    //fmt.Println("ws_origin:", ws_origin)
+    //fmt.Println("ws_url:", ws_url)
+
+    for {
+        conn, err := ln.AcceptTCP()
+        if err != nil {
+            fmt.Println("accept error:", err)
+            continue
+        }
+
+        go handleConnection(conn)
+    }
+}
 
 func handleConnection(conn *net.TCPConn) {
     closed := false
@@ -109,7 +146,7 @@ func getRequest(conn *net.TCPConn) (err error) {
         return
     }
    
-    encodeData(rawRequest) 
+    asocks.EncodeData(rawRequest) 
     if n, err = remote.Write(rawRequest); err != nil {
         fmt.Println("getRequest 发送request到远程服务器失败。err:", err)
         remote.Close()
@@ -125,8 +162,8 @@ func getRequest(conn *net.TCPConn) (err error) {
     }
    
     finishChannel := make(chan bool, 2) 
-    go pipeThenClose(conn, remote, finishChannel)
-    pipeThenClose(remote, conn, finishChannel)
+    go asocks.PipeThenClose(conn, remote, finishChannel)
+    asocks.PipeThenClose(remote, conn, finishChannel)
     <- finishChannel
     <- finishChannel
     conn.Close()
@@ -135,76 +172,6 @@ func getRequest(conn *net.TCPConn) (err error) {
     return nil
 }
 
-func pipeThenClose(src, dst net.Conn, finishChannel chan bool) {
-    defer func(){
-        src.Close()
-        dst.Close()
-        finishChannel <- true
-    }()
-
-    buf := asocks.GetBuffer()
-    defer asocks.GiveBuffer(buf)
-
-    for {
-        src.SetReadDeadline(time.Now().Add(60 * time.Second))
-        n, err := src.Read(buf)
-        if n > 0 {
-            data := buf[0:n]
-            encodeData(data)
-            if _, err := dst.Write(data); err != nil {
-                break
-            }
-        }
-        if err != nil {
-            break
-        }
-    }
-}
-
-func encodeData(data []byte) {
-    for i, _ := range data {
-        data[i] ^= 100
-    }
-}
-
 func printUsage() {
     fmt.Printf("Usage:%s -s server_addr:server_port -l local_addr:local_port\n", os.Args[0])
-}
-
-var localAddr string
-
-
-var ws_origin string
-var ws_url string
-
-func main() {
-    flag.StringVar(&localAddr, "l", "127.0.0.1:17000", "本地监听IP:端口")
-    flag.StringVar(&ws_origin, "o", "https://getdatas.herokuapp.com/", "websocket origin")
-    flag.StringVar(&ws_url, "u", "ws://getdatas.herokuapp.com/ws", "websocket url")
-    flag.Parse()
-
-    numCPU := runtime.NumCPU()
-    runtime.GOMAXPROCS(numCPU)
-    
-    bindAddr, _ := net.ResolveTCPAddr("tcp", localAddr)
-    ln, err := net.ListenTCP("tcp", bindAddr)
-    if  err != nil {
-        fmt.Println("listen error:", err)
-        return
-    }
-    defer ln.Close()
-
-    fmt.Println("listening ", ln.Addr())
-    //fmt.Println("ws_origin:", ws_origin)
-    //fmt.Println("ws_url:", ws_url)
-
-    for {
-        conn, err := ln.AcceptTCP()
-        if err != nil {
-            fmt.Println("accept error:", err) 
-            continue
-        }
-
-        go handleConnection(conn)
-    }
 }

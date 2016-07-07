@@ -6,7 +6,6 @@ import (
     "strconv"
     "encoding/binary"
     "runtime"
-    "time"
     "flag"
     "github.com/wkServerService/asocks-go/src/asocks"
     "io"
@@ -54,7 +53,7 @@ func getRequest(conn *websocket.Conn) (err error){
         return
     }
 
-    encodeData(buf)
+    asocks.EncodeData(buf)
 
     addressType := buf[0]
     reqLen := 0;
@@ -84,7 +83,7 @@ func getRequest(conn *websocket.Conn) (err error){
         if _, err = io.ReadFull(conn, buf[n : reqLen]); err != nil {
             return
         }
-        encodeData(buf[n:reqLen]) 
+        asocks.EncodeData(buf[n:reqLen]) 
     }
 
     port := binary.BigEndian.Uint16(buf[reqLen - 2 : reqLen])
@@ -106,44 +105,12 @@ func getRequest(conn *websocket.Conn) (err error){
     }
    
     finish := make(chan bool, 2) 
-    go pipeThenClose(conn, remote, finish)
-    pipeThenClose(remote, conn, finish)
+    go asocks.PipeThenClose(conn, remote, finish)
+    asocks.PipeThenClose(remote, conn, finish)
     <- finish
     <- finish
     conn.Close()
     remote.Close()
 
     return nil
-}
-
-func pipeThenClose(src, dst net.Conn, finish chan bool) {
-    defer func(){
-        src.Close()
-        dst.Close()
-        finish <- true
-    }()
-
-    buf := asocks.GetBuffer()
-    defer asocks.GiveBuffer(buf)
-
-    for {
-        src.SetReadDeadline(time.Now().Add(60 * time.Second))
-        n, err := src.Read(buf);
-        if n > 0 {
-            data := buf[0:n]
-            encodeData(data)
-            if _, err := dst.Write(data); err != nil {
-                break
-            }
-        }
-        if err != nil {
-            break
-        }
-    }
-}
-
-func encodeData(data []byte) {
-    for i, _ := range data {
-        data[i] ^= 100;
-    }
 }
